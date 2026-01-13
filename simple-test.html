@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Menu Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #2c3e50;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        #gameCanvas {
+            border: 2px solid #34495e;
+            background-color: #ecf0f1;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <script>
+        // Simple, direct approach - complete math game
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let currentState = 'menu'; // 'menu', 'playing', 'gameOver'
+        let selectedButton = 0;
+        
+        // Game variables
+        let player = { x: 400, y: 500, width: 40, height: 40, speed: 200 };
+        let tiles = [];
+        let currentQuestion = null;
+        let score = 0;
+        let health = 100;
+        let level = 1;
+        let lastTime = 0;
+        let tileSpawnTimer = 0;
+        let keys = {};
+        
+        // Menu buttons
+        const menuButtons = [
+            { text: 'Start Game', x: 300, y: 300, width: 200, height: 60 },
+            { text: 'Instructions', x: 300, y: 380, width: 200, height: 60 }
+        ];
+        
+        const gameOverButtons = [
+            { text: 'Play Again', x: 300, y: 350, width: 200, height: 60 },
+            { text: 'Main Menu', x: 300, y: 430, width: 200, height: 60 }
+        ];
+        
+        // Math operations
+        function generateQuestion() {
+            const operations = ['+', '-', '*'];
+            const op = operations[Math.floor(Math.random() * operations.length)];
+            let a, b, answer;
+            
+            switch (op) {
+                case '+':
+                    a = Math.floor(Math.random() * 20) + 1;
+                    b = Math.floor(Math.random() * 20) + 1;
+                    answer = a + b;
+                    break;
+                case '-':
+                    a = Math.floor(Math.random() * 20) + 10;
+                    b = Math.floor(Math.random() * a) + 1;
+                    answer = a - b;
+                    break;
+                case '*':
+                    a = Math.floor(Math.random() * 10) + 1;
+                    b = Math.floor(Math.random() * 10) + 1;
+                    answer = a * b;
+                    break;
+            }
+            
+            return {
+                text: `${a} ${op} ${b} = ?`,
+                answer: answer
+            };
+        }
+        
+        function spawnTiles() {
+            if (!currentQuestion) return;
+            
+            tiles = [];
+            const correctAnswer = currentQuestion.answer;
+            const numTiles = 3 + Math.floor(level / 2);
+            
+            // Add correct answer
+            tiles.push({
+                x: Math.random() * (canvas.width - 60),
+                y: -60,
+                width: 60,
+                height: 60,
+                value: correctAnswer,
+                isCorrect: true,
+                speed: 50 + level * 10
+            });
+            
+            // Add wrong answers
+            for (let i = 1; i < numTiles; i++) {
+                let wrongAnswer;
+                do {
+                    wrongAnswer = correctAnswer + Math.floor(Math.random() * 20) - 10;
+                } while (wrongAnswer === correctAnswer || wrongAnswer < 0);
+                
+                tiles.push({
+                    x: Math.random() * (canvas.width - 60),
+                    y: -60 - i * 100,
+                    width: 60,
+                    height: 60,
+                    value: wrongAnswer,
+                    isCorrect: false,
+                    speed: 50 + level * 10
+                });
+            }
+        }
+        
+        function startGame() {
+            currentState = 'playing';
+            score = 0;
+            health = 100;
+            level = 1;
+            player.x = 400;
+            player.y = 500;
+            tiles = [];
+            currentQuestion = generateQuestion();
+            spawnTiles();
+            tileSpawnTimer = 0;
+            gameLoop();
+        }
+        
+        function checkCollisions() {
+            for (let i = tiles.length - 1; i >= 0; i--) {
+                const tile = tiles[i];
+                
+                if (player.x < tile.x + tile.width &&
+                    player.x + player.width > tile.x &&
+                    player.y < tile.y + tile.height &&
+                    player.y + player.height > tile.y) {
+                    
+                    // Collision detected
+                    if (tile.isCorrect) {
+                        score += 10 * level;
+                        currentQuestion = generateQuestion();
+                        spawnTiles();
+                        if (score % 50 === 0) level++;
+                    } else {
+                        health -= 20;
+                        if (health <= 0) {
+                            currentState = 'gameOver';
+                            selectedButton = 0;
+                            return;
+                        }
+                    }
+                    
+                    tiles.splice(i, 1);
+                    break;
+                }
+            }
+        }
+        
+        function updateGame(deltaTime) {
+            if (currentState !== 'playing') return;
+            
+            // Update player
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= player.speed * deltaTime;
+            }
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
+                player.x += player.speed * deltaTime;
+            }
+            if (keys['ArrowUp'] && player.y > 0) {
+                player.y -= player.speed * deltaTime;
+            }
+            if (keys['ArrowDown'] && player.y < canvas.height - player.height) {
+                player.y += player.speed * deltaTime;
+            }
+            
+            // Update tiles
+            for (let i = tiles.length - 1; i >= 0; i--) {
+                tiles[i].y += tiles[i].speed * deltaTime;
+                
+                // Remove tiles that are off screen
+                if (tiles[i].y > canvas.height) {
+                    tiles.splice(i, 1);
+                }
+            }
+            
+            // Spawn new tiles if needed
+            tileSpawnTimer += deltaTime;
+            if (tiles.length === 0 && tileSpawnTimer > 2) {
+                currentQuestion = generateQuestion();
+                spawnTiles();
+                tileSpawnTimer = 0;
+            }
+            
+            checkCollisions();
+        }
+        
+        function drawGame() {
+            // Clear canvas
+            ctx.fillStyle = '#ecf0f1';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (currentState === 'menu') {
+                drawMenu();
+            } else if (currentState === 'playing') {
+                drawPlaying();
+            } else if (currentState === 'gameOver') {
+                drawGameOver();
+            }
+        }
+        
+        function drawMenu() {
+            // Clear canvas
+            ctx.fillStyle = '#1a252f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw title
+            ctx.fillStyle = '#ecf0f1';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Quick Math Game', canvas.width / 2, 150);
+            
+            // Draw subtitle
+            ctx.font = '24px Arial';
+            ctx.fillStyle = '#bdc3c7';
+            ctx.fillText('Improve your arithmetic skills!', canvas.width / 2, 200);
+            
+            // Draw buttons
+            menuButtons.forEach((button, index) => {
+                const isSelected = index === selectedButton;
+                
+                // Button background
+                ctx.fillStyle = isSelected ? '#e74c3c' : '#3498db';
+                ctx.fillRect(button.x, button.y, button.width, button.height);
+                
+                // Button border
+                ctx.strokeStyle = isSelected ? '#c0392b' : '#2980b9';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(button.x, button.y, button.width, button.height);
+                
+                // Button text
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(
+                    button.text,
+                    button.x + button.width / 2,
+                    button.y + button.height / 2 + 7
+                );
+            });
+            
+            // Instructions
+            ctx.font = '16px Arial';
+            ctx.fillStyle = '#95a5a6';
+            ctx.fillText('Use arrow keys to navigate, Enter to select', canvas.width / 2, canvas.height - 50);
+        }
+        
+        function drawPlaying() {
+            // Draw question
+            if (currentQuestion) {
+                ctx.fillStyle = '#2c3e50';
+                ctx.font = 'bold 32px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(currentQuestion.text, canvas.width / 2, 50);
+            }
+            
+            // Draw player
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Draw tiles
+            tiles.forEach(tile => {
+                ctx.fillStyle = tile.isCorrect ? '#27ae60' : '#e67e22';
+                ctx.fillRect(tile.x, tile.y, tile.width, tile.height);
+                
+                // Draw tile value
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(
+                    tile.value.toString(),
+                    tile.x + tile.width / 2,
+                    tile.y + tile.height / 2 + 7
+                );
+            });
+            
+            // Draw UI
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+            ctx.fillText(`Level: ${level}`, 10, 55);
+            
+            // Draw health bar
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(canvas.width - 210, 10, health * 2, 20);
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(canvas.width - 210, 10, 200, 20);
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(`Health: ${health}`, canvas.width - 10, 25);
+            
+            // Instructions
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Use arrow keys to move. Collide with the correct answer!', canvas.width / 2, canvas.height - 20);
+        }
+        
+        function drawGameOver() {
+            // Semi-transparent overlay
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Game over text
+            ctx.fillStyle = '#ecf0f1';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', canvas.width / 2, 150);
+            
+            // Final score
+            ctx.font = '32px Arial';
+            ctx.fillText(`Final Score: ${score}`, canvas.width / 2, 220);
+            ctx.fillText(`Level Reached: ${level}`, canvas.width / 2, 260);
+            
+            // Draw buttons
+            gameOverButtons.forEach((button, index) => {
+                const isSelected = index === selectedButton;
+                
+                // Button background
+                ctx.fillStyle = isSelected ? '#e74c3c' : '#3498db';
+                ctx.fillRect(button.x, button.y, button.width, button.height);
+                
+                // Button border
+                ctx.strokeStyle = isSelected ? '#c0392b' : '#2980b9';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(button.x, button.y, button.width, button.height);
+                
+                // Button text
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(
+                    button.text,
+                    button.x + button.width / 2,
+                    button.y + button.height / 2 + 7
+                );
+            });
+        }
+        
+        function handleKeyPress(event) {
+            keys[event.code] = true;
+            
+            if (currentState === 'menu') {
+                switch (event.code) {
+                    case 'ArrowUp':
+                        selectedButton = Math.max(0, selectedButton - 1);
+                        break;
+                    case 'ArrowDown':
+                        selectedButton = Math.min(menuButtons.length - 1, selectedButton + 1);
+                        break;
+                    case 'Enter':
+                        if (selectedButton === 0) {
+                            startGame();
+                        } else {
+                            alert('Instructions:\n\nUse arrow keys to move your red square.\nCollide with the GREEN tile that has the correct answer.\nAvoid ORANGE tiles with wrong answers.\nTry to reach higher levels and beat your score!');
+                        }
+                        break;
+                }
+            } else if (currentState === 'gameOver') {
+                switch (event.code) {
+                    case 'ArrowUp':
+                        selectedButton = Math.max(0, selectedButton - 1);
+                        break;
+                    case 'ArrowDown':
+                        selectedButton = Math.min(gameOverButtons.length - 1, selectedButton + 1);
+                        break;
+                    case 'Enter':
+                        if (selectedButton === 0) {
+                            startGame();
+                        } else {
+                            currentState = 'menu';
+                            selectedButton = 0;
+                        }
+                        break;
+                }
+            } else if (currentState === 'playing') {
+                if (event.code === 'Escape') {
+                    currentState = 'menu';
+                    selectedButton = 0;
+                }
+            }
+        }
+        
+        function handleKeyRelease(event) {
+            keys[event.code] = false;
+        }
+        
+        function handleMouseClick(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            if (currentState === 'menu') {
+                menuButtons.forEach((button, index) => {
+                    if (x >= button.x && x <= button.x + button.width &&
+                        y >= button.y && y <= button.y + button.height) {
+                        selectedButton = index;
+                        if (index === 0) {
+                            startGame();
+                        } else {
+                            alert('Instructions:\n\nUse arrow keys to move your red square.\nCollide with the GREEN tile that has the correct answer.\nAvoid ORANGE tiles with wrong answers.\nTry to reach higher levels and beat your score!');
+                        }
+                    }
+                });
+            } else if (currentState === 'gameOver') {
+                gameOverButtons.forEach((button, index) => {
+                    if (x >= button.x && x <= button.x + button.width &&
+                        y >= button.y && y <= button.y + button.height) {
+                        selectedButton = index;
+                        if (index === 0) {
+                            startGame();
+                        } else {
+                            currentState = 'menu';
+                            selectedButton = 0;
+                        }
+                    }
+                });
+            }
+        }
+        
+        function gameLoop(currentTime = 0) {
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            
+            updateGame(deltaTime);
+            drawGame();
+            
+            if (currentState === 'playing') {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', handleKeyPress);
+        document.addEventListener('keyup', handleKeyRelease);
+        canvas.addEventListener('click', handleMouseClick);
+        
+        // Initial draw
+        drawGame();
+        
+        console.log('Complete Quick Math Game loaded successfully!');
+        console.log('Click "Start Game" to begin playing!');
+    </script>
+</body>
+</html>

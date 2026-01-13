@@ -1,0 +1,35 @@
+services:
+  quick-math-game:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      # Configure port 8080 exposure as required
+      - "8080:80"
+    volumes:
+      # Set up volume mounting for development
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./js:/usr/share/nginx/html/js:ro
+      - ./package.json:/usr/share/nginx/html/package.json:ro
+    healthcheck:
+      # Add health checks as required
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    container_name: quick-math-game-container
+    
+    # Additional configuration for production readiness
+    environment:
+      - NGINX_HOST=localhost
+      - NGINX_PORT=80
+    
+    # Resource limits for better container management
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
