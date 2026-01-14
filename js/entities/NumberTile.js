@@ -200,35 +200,58 @@ class NumberTile extends Entity {
      */
     updateMovement(deltaTime) {
         const pattern = this.movementPattern;
-        let newVelocity = new Vector2D(0, 0);
+        let targetVelocity = new Vector2D(0, 0);
         
         switch (pattern.type) {
             case 'linear':
-                newVelocity = this.updateLinearMovement(pattern, deltaTime);
+                targetVelocity = this.updateLinearMovement(pattern, deltaTime);
                 break;
                 
             case 'sine':
-                newVelocity = this.updateSineMovement(pattern, deltaTime);
+                targetVelocity = this.updateSineMovement(pattern, deltaTime);
                 break;
                 
             case 'circular':
-                newVelocity = this.updateCircularMovement(pattern, deltaTime);
+                targetVelocity = this.updateCircularMovement(pattern, deltaTime);
                 break;
                 
             case 'zigzag':
-                newVelocity = this.updateZigzagMovement(pattern, deltaTime);
+                targetVelocity = this.updateZigzagMovement(pattern, deltaTime);
                 break;
                 
             case 'spiral':
-                newVelocity = this.updateSpiralMovement(pattern, deltaTime);
+                targetVelocity = this.updateSpiralMovement(pattern, deltaTime);
                 break;
                 
             default:
                 // Fallback to simple linear movement
-                newVelocity = pattern.direction.multiply(this.currentSpeed);
+                targetVelocity = pattern.direction.multiply(this.currentSpeed);
         }
         
-        this.setVelocity(newVelocity.x, newVelocity.y);
+        // Apply velocity smoothing to prevent jarring movement changes
+        const smoothingFactor = Math.min(1.0, deltaTime * 8); // Smooth over ~0.125 seconds
+        const currentVelocity = this.velocity || new Vector2D(0, 0);
+        
+        // Interpolate between current and target velocity
+        const smoothedVelocity = new Vector2D(
+            currentVelocity.x + (targetVelocity.x - currentVelocity.x) * smoothingFactor,
+            currentVelocity.y + (targetVelocity.y - currentVelocity.y) * smoothingFactor
+        );
+        
+        // Limit maximum velocity change per frame for smoothness
+        const maxVelocityChange = this.currentSpeed * 2 * deltaTime; // Max 2x speed change per second
+        const velocityChange = smoothedVelocity.subtract(currentVelocity);
+        const velocityChangeMagnitude = velocityChange.magnitude();
+        
+        if (velocityChangeMagnitude > maxVelocityChange) {
+            const limitedVelocityChange = velocityChange.normalize().multiply(maxVelocityChange);
+            this.setVelocity(
+                currentVelocity.x + limitedVelocityChange.x,
+                currentVelocity.y + limitedVelocityChange.y
+            );
+        } else {
+            this.setVelocity(smoothedVelocity.x, smoothedVelocity.y);
+        }
     }
     
     /**
@@ -265,12 +288,15 @@ class NumberTile extends Entity {
         // Base movement in the primary direction
         const baseMovement = pattern.direction.multiply(this.currentSpeed);
         
-        // Perpendicular sine wave motion
+        // Perpendicular sine wave motion - calculate velocity, not position
         const perpendicular = new Vector2D(-pattern.direction.y, pattern.direction.x);
-        const sineOffset = Math.sin(this.movementTime * pattern.frequency) * pattern.amplitude;
-        const sineMovement = perpendicular.multiply(sineOffset);
         
-        return baseMovement.add(sineMovement.multiply(deltaTime * 60)); // Scale for smooth movement
+        // Calculate sine wave velocity (derivative of sine position)
+        const sineVelocity = Math.cos(this.movementTime * pattern.frequency) * 
+                            pattern.frequency * pattern.amplitude;
+        const sineMovement = perpendicular.multiply(sineVelocity);
+        
+        return baseMovement.add(sineMovement);
     }
     
     /**
@@ -280,16 +306,23 @@ class NumberTile extends Entity {
      * @returns {Vector2D} New velocity vector
      */
     updateCircularMovement(pattern, deltaTime) {
-        // Calculate position on circle
+        // Calculate current angle and angular velocity
         const angle = this.movementTime * pattern.angularSpeed;
-        const centerX = this.position.x + pattern.radius * Math.cos(angle);
-        const centerY = this.position.y + pattern.radius * Math.sin(angle);
         
-        // Calculate tangent velocity for circular motion
-        const tangentX = -pattern.radius * pattern.angularSpeed * Math.sin(angle);
-        const tangentY = pattern.radius * pattern.angularSpeed * Math.cos(angle);
+        // Calculate tangent velocity for smooth circular motion
+        const tangentVelocityX = -pattern.radius * pattern.angularSpeed * Math.sin(angle);
+        const tangentVelocityY = pattern.radius * pattern.angularSpeed * Math.cos(angle);
         
-        return new Vector2D(tangentX, tangentY);
+        // Scale velocity to match the desired speed
+        const tangentVelocity = new Vector2D(tangentVelocityX, tangentVelocityY);
+        const currentMagnitude = tangentVelocity.magnitude();
+        
+        if (currentMagnitude > 0) {
+            const scaleFactor = this.currentSpeed / currentMagnitude;
+            return tangentVelocity.multiply(scaleFactor);
+        }
+        
+        return new Vector2D(0, 0);
     }
     
     /**
@@ -591,6 +624,57 @@ class NumberTile extends Entity {
         return this.currentSpeed;
     }
     
+    /**
+     * Set the movement pattern type (for testing purposes)
+     * @param {string} patternType - The movement pattern type
+     */
+    setMovementPattern(patternType) {
+        // Update the movement pattern type
+        const currentPattern = this.movementPattern;
+        
+        switch (patternType) {
+            case 'linear':
+                this.movementPattern = { 
+                    type: 'linear', 
+                    direction: currentPattern.direction || this.randomDirection(),
+                    variation: this.randomFloat(0.1, 0.3)
+                };
+                break;
+            case 'sine':
+                this.movementPattern = { 
+                    type: 'sine', 
+                    direction: currentPattern.direction || this.randomDirection(),
+                    amplitude: this.randomFloat(20, 60),
+                    frequency: this.randomFloat(1, 3)
+                };
+                break;
+            case 'circular':
+                this.movementPattern = { 
+                    type: 'circular', 
+                    radius: this.randomFloat(30, 80),
+                    angularSpeed: this.randomFloat(1, 4)
+                };
+                break;
+            case 'zigzag':
+                this.movementPattern = { 
+                    type: 'zigzag', 
+                    direction: currentPattern.direction || this.randomDirection(),
+                    changeInterval: this.randomFloat(0.5, 2.0)
+                };
+                break;
+            case 'spiral':
+                this.movementPattern = { 
+                    type: 'spiral', 
+                    direction: currentPattern.direction || this.randomDirection(),
+                    spiralRate: this.randomFloat(0.1, 0.5)
+                };
+                break;
+            default:
+                // Keep current pattern if unknown type
+                break;
+        }
+    }
+
     /**
      * Get the movement pattern type
      * @returns {string} The movement pattern type

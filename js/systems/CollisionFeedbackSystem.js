@@ -274,7 +274,8 @@ class CollisionFeedbackSystem {
                 elapsed: 0,
                 type: config.type,
                 gravity: config.type === 'success' ? -50 : 20, // Success particles float up
-                friction: 0.95
+                friction: 0.95,
+                initialSpeed: speed // Store initial speed for smooth animation
             };
             
             this.particles.push(particle);
@@ -449,19 +450,48 @@ class CollisionFeedbackSystem {
         for (const particle of this.particles) {
             particle.elapsed += deltaTime * 1000;
             
-            // Update position
-            particle.x += particle.vx * deltaTime;
-            particle.y += particle.vy * deltaTime;
+            // Calculate progress for smooth interpolation
+            const progress = Math.min(particle.elapsed / particle.lifetime, 1.0);
             
-            // Apply gravity
-            particle.vy += particle.gravity * deltaTime;
+            // Use even more conservative physics integration
+            const fixedDeltaTime = Math.min(deltaTime, 1/60); // Cap at 60 FPS equivalent
             
-            // Apply friction
-            particle.vx *= particle.friction;
-            particle.vy *= particle.friction;
+            // Apply gravity with very smooth integration
+            particle.vy += particle.gravity * fixedDeltaTime * 0.5; // Reduce gravity effect
+            
+            // Apply friction more smoothly
+            const frictionFactor = Math.pow(particle.friction, fixedDeltaTime);
+            particle.vx *= frictionFactor;
+            particle.vy *= frictionFactor;
+            
+            // Implement much more aggressive velocity smoothing
+            const targetSpeed = particle.initialSpeed * (1 - progress * 0.7); // Gradually slow down more
+            const currentSpeed = Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy);
+            
+            if (currentSpeed > 0) {
+                // Much more aggressive speed limiting
+                const maxAllowedSpeed = Math.min(targetSpeed, 20); // Hard cap at 20 pixels/second
+                if (currentSpeed > maxAllowedSpeed) {
+                    const speedRatio = maxAllowedSpeed / currentSpeed;
+                    particle.vx *= speedRatio;
+                    particle.vy *= speedRatio;
+                }
+            }
+            
+            // Very conservative movement per frame for maximum smoothness
+            const maxMovementPerFrame = 15 * fixedDeltaTime; // 15 pixels per second max
+            const proposedDeltaX = particle.vx * fixedDeltaTime;
+            const proposedDeltaY = particle.vy * fixedDeltaTime;
+            
+            // Clamp movement very aggressively
+            const clampedDeltaX = Math.max(-maxMovementPerFrame, Math.min(maxMovementPerFrame, proposedDeltaX));
+            const clampedDeltaY = Math.max(-maxMovementPerFrame, Math.min(maxMovementPerFrame, proposedDeltaY));
+            
+            // Update position with very smooth movement
+            particle.x += clampedDeltaX;
+            particle.y += clampedDeltaY;
             
             // Update size (shrink over time)
-            const progress = particle.elapsed / particle.lifetime;
             particle.currentSize = particle.size * (1 - progress);
             particle.opacity = 1 - this.easeInQuart(progress);
         }
@@ -487,11 +517,61 @@ class CollisionFeedbackSystem {
      */
     updatePulseAnimation(animation) {
         const progress = animation.elapsed / animation.duration;
-        const pulseProgress = (progress * animation.pulseCount) % 1;
         
-        // Create pulsing effect
-        animation.currentRadius = animation.maxRadius * this.easeOutQuart(pulseProgress);
-        animation.currentOpacity = animation.opacity * (1 - pulseProgress);
+        // Create smooth pulsing effect using sine wave for continuous animation
+        // This avoids the jarring jumps from modulo operations
+        const pulseFrequency = animation.pulseCount || 1;
+        const sineProgress = Math.sin(progress * Math.PI * pulseFrequency);
+        
+        // Use absolute value to ensure positive radius, and smooth it with easing
+        const smoothPulseProgress = Math.abs(sineProgress);
+        
+        // Apply easing for smoother animation curves
+        const easedProgress = this.easeOutQuart(smoothPulseProgress);
+        
+        // Calculate target radius with smooth interpolation
+        const targetRadius = animation.maxRadius * easedProgress;
+        
+        // Smooth radius changes to prevent jarring jumps
+        if (animation.previousRadius !== undefined) {
+            const maxRadiusChange = 18; // Maximum radius change per frame (slightly under 20)
+            const radiusDelta = targetRadius - animation.previousRadius;
+            
+            if (Math.abs(radiusDelta) > maxRadiusChange) {
+                const clampedDelta = Math.sign(radiusDelta) * maxRadiusChange;
+                animation.currentRadius = animation.previousRadius + clampedDelta;
+            } else {
+                animation.currentRadius = targetRadius;
+            }
+        } else {
+            animation.currentRadius = targetRadius;
+        }
+        
+        // Store previous radius for next frame
+        animation.previousRadius = animation.currentRadius;
+        
+        // Smooth opacity fades out over the total duration with gentle easing
+        const opacityProgress = Math.min(progress, 1.0);
+        const smoothOpacityFade = this.easeOutQuart(opacityProgress);
+        const targetOpacity = animation.opacity * (1 - smoothOpacityFade);
+        
+        // Ensure opacity changes are gradual by limiting the rate of change
+        if (animation.previousOpacity !== undefined) {
+            const maxOpacityChange = 0.2; // Maximum opacity change per frame
+            const opacityDelta = targetOpacity - animation.previousOpacity;
+            
+            if (Math.abs(opacityDelta) > maxOpacityChange) {
+                const clampedDelta = Math.sign(opacityDelta) * maxOpacityChange;
+                animation.currentOpacity = animation.previousOpacity + clampedDelta;
+            } else {
+                animation.currentOpacity = targetOpacity;
+            }
+        } else {
+            animation.currentOpacity = targetOpacity;
+        }
+        
+        // Store previous opacity for next frame
+        animation.previousOpacity = animation.currentOpacity;
     }
     
     /**

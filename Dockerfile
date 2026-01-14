@@ -5,6 +5,7 @@ FROM nginx:alpine
 COPY index.html /usr/share/nginx/html/
 COPY simple-test.html /usr/share/nginx/html/
 COPY debug-simple.html /usr/share/nginx/html/
+COPY minimal-test.html /usr/share/nginx/html/
 COPY js/ /usr/share/nginx/html/js/
 COPY package.json /usr/share/nginx/html/
 

@@ -23,6 +23,7 @@ class HealthSystem {
             showHealthText: true,
             healthTextColor: '#2c3e50',
             healthTextFont: '12px Arial',
+            enableDamageFlash: true, // Allow disabling flash effect for testing
             ...config
         };
         
@@ -351,7 +352,7 @@ class HealthSystem {
         
         // Apply damage flash effect
         const currentTime = Date.now();
-        if (currentTime - this.damageFlashTime < this.damageFlashDuration) {
+        if (this.config.enableDamageFlash && currentTime - this.damageFlashTime < this.damageFlashDuration) {
             // Flash between normal color and white
             const flashProgress = (currentTime - this.damageFlashTime) / this.damageFlashDuration;
             const flashIntensity = Math.sin(flashProgress * Math.PI * 4) * 0.5 + 0.5;
@@ -369,12 +370,12 @@ class HealthSystem {
         
         // Add visual indicator for zero health (death state)
         if (this.isDead || this.currentHealth <= 0) {
-            // Draw a red background overlay when dead
-            context.fillStyle = 'rgba(231, 76, 60, 0.8)'; // Semi-transparent red
+            // Draw a dark red background overlay when dead (more distinct from critical health)
+            context.fillStyle = 'rgba(139, 0, 0, 0.9)'; // Dark red with high opacity
             context.fillRect(barX, barY, barWidth, barHeight);
             
-            // Draw a red "X" or skull indicator when dead
-            context.strokeStyle = '#ffffff'; // White X on red background
+            // Draw a white "X" or skull indicator when dead
+            context.strokeStyle = '#ffffff'; // White X on dark red background
             context.lineWidth = 4;
             
             // Draw X pattern

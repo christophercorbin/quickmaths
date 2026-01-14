@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal Test</title>
+</head>
+<body style="margin:0; padding:20px; background:#333; color:white; font-family:Arial;">
+    <h1>Minimal Canvas Test</h1>
+    <p>If you can see this text, the HTML is loading correctly.</p>
+    
+    <canvas id="testCanvas" width="400" height="300" style="border:2px solid white; background:#eee;"></canvas>
+    
+    <div id="status" style="margin-top:20px; font-family:monospace; font-size:14px;">
+        Status: Loading...
+    </div>
+    
+    <script>
+        const status = document.getElementById('status');
+        
+        function updateStatus(msg) {
+            status.innerHTML += '<br>' + msg;
+            console.log(msg);
+        }
+        
+        updateStatus('Script started');
+        
+        const canvas = document.getElementById('testCanvas');
+        if (!canvas) {
+            updateStatus('ERROR: Canvas not found');
+        } else {
+            updateStatus('Canvas found: ' + canvas.width + 'x' + canvas.height);
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                updateStatus('ERROR: Could not get 2D context');
+            } else {
+                updateStatus('2D context obtained');
+                
+                // Draw a simple red rectangle
+                ctx.fillStyle = 'red';
+                ctx.fillRect(10, 10, 100, 50);
+                updateStatus('Red rectangle drawn at (10,10)');
+                
+                // Draw some text
+                ctx.fillStyle = 'blue';
+                ctx.font = '20px Arial';
+                ctx.fillText('Hello Canvas!', 10, 100);
+                updateStatus('Blue text drawn');
+                
+                // Draw a green circle
+                ctx.fillStyle = 'green';
+                ctx.beginPath();
+                ctx.arc(200, 150, 30, 0, 2 * Math.PI);
+                ctx.fill();
+                updateStatus('Green circle drawn');
+                
+                updateStatus('SUCCESS: All drawing operations completed');
+            }
+        }
+        
+        updateStatus('Script finished');
+    </script>
+</body>
+</html>
