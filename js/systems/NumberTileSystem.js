@@ -203,17 +203,32 @@ class NumberTileSystem {
             // Shuffle spawn locations to add variety
             const shuffledLocations = this.shuffleArray([...this.spawnLocations]);
             
+            // Track which options we've spawned
+            const spawnedOptions = [];
+            
             for (let i = 0; i < tilesToSpawn && i < optionsToSpawn.length; i++) {
                 const value = optionsToSpawn[i];
                 const isCorrect = value === this.currentAnswerOptions.correctAnswer;
                 const spawnLocation = shuffledLocations[i % shuffledLocations.length];
                 
                 this.spawnTile(value, isCorrect, spawnLocation);
+                spawnedOptions.push(value);
+            }
+            
+            // Only clear answer options if we've spawned all of them
+            // This ensures the correct answer is always available
+            if (spawnedOptions.length >= this.currentAnswerOptions.length) {
+                this.currentAnswerOptions = [];
+            } else {
+                // Remove spawned options from the list, keeping unspawned ones for next time
+                this.currentAnswerOptions = this.currentAnswerOptions.filter(
+                    value => !spawnedOptions.includes(value)
+                );
+                // Preserve the correct answer reference
+                const correctAnswer = this.currentAnswerOptions.correctAnswer;
+                this.currentAnswerOptions.correctAnswer = correctAnswer;
             }
         }
-        
-        // Clear answer options so they'll be regenerated for the next problem
-        this.currentAnswerOptions = [];
     }
     
     /**

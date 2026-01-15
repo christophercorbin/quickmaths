@@ -25,6 +25,7 @@ class GameStateManager {
         // Game states
         this.states = {
             MENU: 'menu',
+            INSTRUCTIONS: 'instructions',
             PLAYING: 'playing',
             PAUSED: 'paused',
             GAME_OVER: 'gameOver'
@@ -105,6 +106,9 @@ class GameStateManager {
             case this.states.MENU:
                 this.handleMenuInput(event);
                 break;
+            case this.states.INSTRUCTIONS:
+                this.handleInstructionsInput(event);
+                break;
             case this.states.PLAYING:
                 this.handlePlayingInput(event);
                 break;
@@ -137,6 +141,35 @@ class GameStateManager {
             case 'Space':
                 event.preventDefault();
                 this.activateSelectedButton();
+                break;
+        }
+    }
+    
+    /**
+     * Handle input in instructions state
+     * @param {KeyboardEvent} event - The keyboard event
+     */
+    handleInstructionsInput(event) {
+        switch (event.code) {
+            case 'ArrowUp':
+            case 'KeyW':
+                event.preventDefault();
+                this.selectedButtonIndex = Math.max(0, this.selectedButtonIndex - 1);
+                break;
+            case 'ArrowDown':
+            case 'KeyS':
+                event.preventDefault();
+                this.selectedButtonIndex = Math.min(this.buttons.length - 1, this.selectedButtonIndex + 1);
+                break;
+            case 'Enter':
+            case 'Space':
+                event.preventDefault();
+                this.activateSelectedButton();
+                break;
+            case 'Escape':
+            case 'KeyM':
+                event.preventDefault();
+                this.returnToMenu();
                 break;
         }
     }
@@ -292,6 +325,13 @@ class GameStateManager {
                 }
                 console.log('Menu state setup complete, buttons:', this.buttons.length);
                 break;
+            case this.states.INSTRUCTIONS:
+                console.log('Setting up instructions state...');
+                this.setupInstructionsButtons();
+                if (this.gameEngine) {
+                    this.gameEngine.pause();
+                }
+                break;
             case this.states.PLAYING:
                 console.log('Setting up playing state...');
                 if (this.gameEngine) {
@@ -369,6 +409,34 @@ class GameStateManager {
                 y: startY + 70,
                 width: 200,
                 height: 50,
+                action: () => this.returnToMenu()
+            }
+        ];
+    }
+    
+    /**
+     * Set up instructions screen buttons
+     */
+    setupInstructionsButtons() {
+        const canvasSize = this.gameEngine ? this.gameEngine.getCanvasSize() : { width: 800, height: 600 };
+        const centerX = canvasSize.width / 2;
+        const startY = canvasSize.height - 120;
+        
+        this.buttons = [
+            {
+                text: 'Start Game',
+                x: centerX - 120,
+                y: startY,
+                width: 240,
+                height: 60,
+                action: () => this.startNewGame()
+            },
+            {
+                text: 'Back to Menu',
+                x: centerX - 120,
+                y: startY + 80,
+                width: 240,
+                height: 60,
                 action: () => this.returnToMenu()
             }
         ];
@@ -472,13 +540,8 @@ class GameStateManager {
      * Show instructions (placeholder for now)
      */
     showInstructions() {
-        // For now, just log instructions - could be expanded to show instruction screen
-        console.log('=== QUICK MATH GAME INSTRUCTIONS ===');
-        console.log('Use arrow keys or WASD to move your character');
-        console.log('Collide with the correct answer to math problems');
-        console.log('Avoid wrong answers or you will lose health');
-        console.log('Press P or ESC to pause during gameplay');
-        console.log('Try to reach higher levels and beat your score!');
+        // Change to instructions state to show instruction screen
+        this.setState(this.states.INSTRUCTIONS);
     }
     
     /**
@@ -541,6 +604,9 @@ class GameStateManager {
             case this.states.MENU:
                 this.renderMenu(context);
                 break;
+            case this.states.INSTRUCTIONS:
+                this.renderInstructions(context);
+                break;
             case this.states.PAUSED:
                 this.renderPauseOverlay(context);
                 break;
@@ -585,6 +651,56 @@ class GameStateManager {
         context.fillText('Use arrow keys to navigate, Enter to select', canvasSize.width / 2, canvasSize.height - 40);
         
         console.log('Menu rendered with', this.buttons.length, 'buttons at canvas size:', canvasSize);
+    }
+    
+    /**
+     * Render the instructions screen
+     * @param {CanvasRenderingContext2D} context - The canvas rendering context
+     */
+    renderInstructions(context) {
+        const canvasSize = this.gameEngine ? this.gameEngine.getCanvasSize() : { width: 800, height: 600 };
+        
+        // Clear canvas with dark background
+        context.fillStyle = '#1a252f';
+        context.fillRect(0, 0, canvasSize.width, canvasSize.height);
+        
+        // Render title
+        context.fillStyle = '#ecf0f1';
+        context.font = `bold ${this.config.fontSize.title}px Arial`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText('How to Play', canvasSize.width / 2, 80);
+        
+        // Render instructions
+        context.font = '22px Arial';
+        context.fillStyle = '#ecf0f1';
+        const instructions = [
+            '🎮 Use Arrow Keys or WASD to move your character',
+            '',
+            '✅ Collide with the correct answer to math problems',
+            '',
+            '❌ Avoid wrong answers or you will lose health',
+            '',
+            '⏸️  Press P or ESC to pause during gameplay',
+            '',
+            '📈 Progress through levels for increasing difficulty',
+            '',
+            '🎯 Try to reach higher levels and beat your score!'
+        ];
+        
+        let yOffset = 160;
+        instructions.forEach(line => {
+            context.fillText(line, canvasSize.width / 2, yOffset);
+            yOffset += 35;
+        });
+        
+        // Render buttons
+        this.renderButtons(context);
+        
+        // Render navigation hint
+        context.font = '18px Arial';
+        context.fillStyle = '#95a5a6';
+        context.fillText('Press ESC or M to return to menu', canvasSize.width / 2, canvasSize.height - 40);
     }
     
     /**

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bug Fix Test - Quick Math Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #2c3e50;
+            font-family: Arial, sans-serif;
+            color: #ecf0f1;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #ecf0f1;
+        }
+        
+        .test-section {
+            background-color: #34495e;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        
+        .pass {
+            background-color: #27ae60;
+        }
+        
+        .fail {
+            background-color: #e74c3c;
+        }
+        
+        #gameCanvas {
+            border: 2px solid #ecf0f1;
+            background-color: #ecf0f1;
+            display: block;
+            margin: 20px auto;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐛 Bug Fix Verification Test</h1>
+        
+        <div class="test-section">
+            <h2>Test 1: Correct Answer Always Displayed</h2>
+            <p>This test verifies that the correct answer tile is always spawned, even when maxTiles limit is reached.</p>
+            <button onclick="testCorrectAnswerSpawn()">Run Test</button>
+            <div id="test1-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 2: Instructions Panel Works</h2>
+            <p>This test verifies that clicking the Instructions button shows the instruction screen.</p>
+            <button onclick="testInstructionsPanel()">Run Test</button>
+            <div id="test2-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Live Game Test</h2>
+            <p>Click "Start Game" in the menu below, then click "Instructions" to verify the instruction panel works.</p>
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+        </div>
+    </div>
+    
+    <!-- Core game modules -->
+    <script src="js/utils/Vector2D.js"></script>
+    <script src="js/core/Entity.js"></script>
+    <script src="js/core/GameEngine.js"></script>
+    <script src="js/systems/GameStateManager.js"></script>
+    <script src="js/systems/ResponsiveSystem.js"></script>
+    <script src="js/systems/InputSystem.js"></script>
+    <script src="js/systems/PhysicsSystem.js"></script>
+    <script src="js/systems/MathContentSystem.js"></script>
+    <script src="js/systems/QuestionDisplaySystem.js"></script>
+    <script src="js/systems/NumberTileSystem.js"></script>
+    <script src="js/systems/ScoreSystem.js"></script>
+    <script src="js/systems/HealthSystem.js"></script>
+    <script src="js/systems/CollisionFeedbackSystem.js"></script>
+    <script src="js/systems/LevelManager.js"></script>
+    <script src="js/systems/AdaptiveLearningSystem.js"></script>
+    <script src="js/systems/GameLogicSystem.js"></script>
+    <script src="js/entities/PlayerCharacter.js"></script>
+    <script src="js/entities/NumberTile.js"></script>
+    
+    <script>
+        let gameEngine, gameStateManager, numberTileSystem, mathContentSystem;
+        
+        // Initialize game
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeGame();
+        });
+        
+        function initializeGame() {
+            // Create game engine
+            gameEngine = new GameEngine('gameCanvas', {
+                targetFPS: 60,
+                backgroundColor: '#ecf0f1',
+                showDebugInfo: false
+            });
+            
+            // Initialize game state manager
+            gameStateManager = new GameStateManager();
+            gameEngine.registerSystem('gameState', gameStateManager);
+            
+            // Initialize responsive system
+            const responsiveSystem = new ResponsiveSystem();
+            gameEngine.registerSystem('responsive', responsiveSystem);
+            
+            // Initialize input system
+            const inputSystem = new InputSystem(gameEngine.canvas);
+            gameEngine.registerSystem('input', inputSystem);
+            
+            // Initialize physics system
+            const physicsSystem = new PhysicsSystem(gameEngine.getCanvasSize());
+            gameEngine.registerSystem('physics', physicsSystem);
+            
+            // Initialize math content system
+            mathContentSystem = new MathContentSystem();
+            gameEngine.registerSystem('mathContent', mathContentSystem);
+            
+            // Initialize question display system
+            const questionDisplaySystem = new QuestionDisplaySystem();
+            gameEngine.registerSystem('questionDisplay', questionDisplaySystem);
+            
+            // Initialize number tile system
+            numberTileSystem = new NumberTileSystem({
+                maxTiles: 3, // Low limit to test the bug fix
+                spawnInterval: 2.0
+            });
+            gameEngine.registerSystem('numberTile', numberTileSystem);
+            
+            // Initialize score system
+            const scoreSystem = new ScoreSystem();
+            gameEngine.registerSystem('score', scoreSystem);
+            
+            // Initialize health system
+            const healthSystem = new HealthSystem();
+            gameEngine.registerSystem('health', healthSystem);
+            
+            // Initialize collision feedback system
+            const collisionFeedbackSystem = new CollisionFeedbackSystem();
+            gameEngine.registerSystem('collisionFeedback', collisionFeedbackSystem);
+            
+            // Initialize level manager
+            const levelManager = new LevelManager();
+            gameEngine.registerSystem('levelManager', levelManager);
+            
+            // Initialize adaptive learning system
+            const adaptiveLearningSystem = new AdaptiveLearningSystem();
+            gameEngine.registerSystem('adaptiveLearning', adaptiveLearningSystem);
+            
+            // Initialize game logic system
+            const gameLogicSystem = new GameLogicSystem();
+            gameEngine.registerSystem('gameLogic', gameLogicSystem);
+            
+            // Create player character
+            const playerCharacter = new PlayerCharacter(400, 300, 40, 40);
+            playerCharacter.setWorldBounds(gameEngine.getCanvasSize());
+            window.playerCharacter = playerCharacter;
+            
+            // Start the game
+            gameEngine.start();
+            
+            console.log('Bug fix test game initialized');
+        }
+        
+        function testCorrectAnswerSpawn() {
+            const resultDiv = document.getElementById('test1-result');
+            resultDiv.innerHTML = '<p>Running test...</p>';
+            
+            try {
+                // Generate a problem
+                const problem = mathContentSystem.generateProblem('addition', 1);
+                console.log('Generated problem:', problem);
+                
+                // Generate answer options (5 options but maxTiles is 3)
+                const answerOptions = mathContentSystem.generateAnswerOptions(problem.correctAnswer, 5, 1);
+                console.log('Answer options:', answerOptions);
+                
+                // Set up the number tile system with the answer options
+                numberTileSystem.currentAnswerOptions = answerOptions;
+                numberTileSystem.currentAnswerOptions.correctAnswer = problem.correctAnswer;
+                
+                // Clear existing tiles
+                numberTileSystem.clearAllTiles();
+                
+                // Force spawn tiles (should spawn 3 tiles max, but correct answer must be included)
+                numberTileSystem.spawnTilesForCurrentProblem();
+                
+                // Wait a bit for tiles to spawn
+                setTimeout(() => {
+                    const activeTiles = numberTileSystem.getActiveTiles();
+                    console.log('Active tiles:', activeTiles.map(t => ({ value: t.getValue(), correct: t.isCorrectAnswer() })));
+                    
+                    // Check if correct answer is present
+                    const hasCorrectAnswer = activeTiles.some(tile => tile.getValue() === problem.correctAnswer);
+                    
+                    if (hasCorrectAnswer) {
+                        resultDiv.innerHTML = `
+                            <div class="test-result pass">
+                                <strong>✅ PASS:</strong> Correct answer (${problem.correctAnswer}) is present among spawned tiles!<br>
+                                Spawned ${activeTiles.length} tiles: ${activeTiles.map(t => t.getValue()).join(', ')}
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="test-result fail">
+                                <strong>❌ FAIL:</strong> Correct answer (${problem.correctAnswer}) is NOT present!<br>
+                                Spawned ${activeTiles.length} tiles: ${activeTiles.map(t => t.getValue()).join(', ')}
+                            </div>
+                        `;
+                    }
+                }, 100);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="test-result fail">
+                        <strong>❌ ERROR:</strong> ${error.message}
+                    </div>
+                `;
+                console.error('Test error:', error);
+            }
+        }
+        
+        function testInstructionsPanel() {
+            const resultDiv = document.getElementById('test2-result');
+            resultDiv.innerHTML = '<p>Running test...</p>';
+            
+            try {
+                // Check if instructions state exists
+                const hasInstructionsState = gameStateManager.states.INSTRUCTIONS !== undefined;
+                
+                if (!hasInstructionsState) {
+                    resultDiv.innerHTML = `
+                        <div class="test-result fail">
+                            <strong>❌ FAIL:</strong> Instructions state not defined in GameStateManager
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Try to show instructions
+                const initialState = gameStateManager.getCurrentState();
+                gameStateManager.showInstructions();
+                const newState = gameStateManager.getCurrentState();
+                
+                if (newState === 'instructions') {
+                    resultDiv.innerHTML = `
+                        <div class="test-result pass">
+                            <strong>✅ PASS:</strong> Instructions panel works!<br>
+                            State changed from "${initialState}" to "${newState}"<br>
+                            <em>Check the canvas above to see the instructions screen.</em>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="test-result fail">
+                            <strong>❌ FAIL:</strong> State did not change to instructions<br>
+                            Current state: "${newState}"
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="test-result fail">
+                        <strong>❌ ERROR:</strong> ${error.message}
+                    </div>
+                `;
+                console.error('Test error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
